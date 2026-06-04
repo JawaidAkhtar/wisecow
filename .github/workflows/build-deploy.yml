@@ -14,12 +14,17 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      commit_sha: ${{ steps.vars.outputs.sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Convert owner to lowercase
+      - name: Get short commit SHA
+        id: vars
         run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHORT_SHA" >> $GITHUB_OUTPUT
           LOWER_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "LOWER_OWNER=$LOWER_OWNER" >> $GITHUB_ENV
 
@@ -30,13 +35,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build Docker image with commit SHA tag
         run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:latest .
+          docker build -t ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:${{ steps.vars.outputs.sha }} .
 
       - name: Push Docker image
         run: |
-          docker push ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:latest
+          docker push ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:${{ steps.vars.outputs.sha }}
 
   deploy:
     needs: build
@@ -50,6 +55,11 @@ jobs:
           LOWER_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "LOWER_OWNER=$LOWER_OWNER" >> $GITHUB_ENV
 
+      - name: Get commit SHA from build job
+        id: vars
+        run: |
+          echo "sha=${{ needs.build.outputs.commit_sha }}" >> $GITHUB_OUTPUT
+
       - name: Set up Minikube
         uses: medyagh/setup-minikube@latest
 
@@ -57,16 +67,18 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Pull Docker image into Minikube
+      - name: Pull Docker image (with commit SHA tag) into Minikube
         run: |
           eval $(minikube docker-env)
-          docker pull ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:latest
+          docker pull ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:${{ steps.vars.outputs.sha }}
 
-      - name: Deploy to Minikube
+      - name: Deploy to Minikube (with image tag substitution)
         run: |
+          # Apply the manifests but then update the deployment image tag
           kubectl apply -f deployment.yaml
           kubectl apply -f service.yaml
-          kubectl wait --for=condition=ready pod -l app=wisecow-server --timeout=90s
+          kubectl set image deployment/wisecow-server wisecow=${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:${{ steps.vars.outputs.sha }}
+          kubectl rollout status deployment/wisecow-server --timeout=90s
 
       - name: Wait and verify pods
         run: |
@@ -78,8 +90,8 @@ jobs:
       - name: Test service (if pod running)
         run: |
           if kubectl get pods | grep -q Running; then
-            curl $(minikube service wisecow-server-svc --url)
-            else
-               echo "No running pod, skipping test"
-            exit 1
+             curl $(minikube service wisecow-server-svc --url)
+          else
+             echo "No running pod, skipping test"
+             exit 1
           fi
