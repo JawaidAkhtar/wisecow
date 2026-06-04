@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wisecow-server
+  labels:
+    app: wisecow-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wisecow-server
+  template:
+    metadata:
+      labels:
+        app: wisecow-server
+    spec:
+      containers:
+      - name: wisecow
+        image: ghcr.io/jawaidakhtar/wisecow:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 4499
+          name: http
