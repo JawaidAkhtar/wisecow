@@ -68,6 +68,18 @@ jobs:
           kubectl apply -f service.yaml
           kubectl wait --for=condition=ready pod -l app=wisecow-server --timeout=90s
 
-      - name: Test the service
+      - name: Wait and verify pods
         run: |
-          curl $(minikube service wisecow-server-svc --url)
+          kubectl wait --for=condition=ready pod -l app=wisecow-server --timeout=90s || true
+          kubectl get pods -o wide
+          kubectl describe pods
+          kubectl logs --all-containers=true --prefix=true || true
+
+      - name: Test service (if pod running)
+        run: |
+          if kubectl get pods | grep -q Running; then
+            curl $(minikube service wisecow-server-svc --url)
+            else
+               echo "No running pod, skipping test"
+            exit 1
+          fi
