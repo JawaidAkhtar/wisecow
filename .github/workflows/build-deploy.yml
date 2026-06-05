@@ -35,7 +35,7 @@ jobs:
       - name: Build Docker image with commit SHA tag
         run: |
           docker build -t ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:${{ steps.vars.outputs.sha }} .
-
+          whoami
       - name: Push Docker image
         run: |
           docker push ${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:${{ steps.vars.outputs.sha }}
