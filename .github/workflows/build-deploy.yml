@@ -10,10 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    runs-on: self-hosted
     outputs:
       commit_sha: ${{ steps.vars.outputs.sha }}
     steps:
@@ -45,7 +42,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
