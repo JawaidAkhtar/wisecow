@@ -62,10 +62,7 @@ jobs:
         id: vars
         run: |
           echo "sha=${{ needs.build.outputs.commit_sha }}" >> $GITHUB_OUTPUT
-
-      - name: Set up Minikube
-        uses: medyagh/setup-minikube@latest
-
+          
       - name: Log in to GHCR
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
