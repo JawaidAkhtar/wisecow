@@ -62,7 +62,7 @@ jobs:
         id: vars
         run: |
           echo "sha=${{ needs.build.outputs.commit_sha }}" >> $GITHUB_OUTPUT
-          
+
       - name: Log in to GHCR
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -77,6 +77,7 @@ jobs:
           # Apply the manifests but then update the deployment image tag
           kubectl apply -f deployment.yaml
           kubectl apply -f service.yaml
+          kubectl apply -f ingress.yaml
           kubectl set image deployment/wisecow-server wisecow=${{ env.REGISTRY }}/${{ env.LOWER_OWNER }}/wisecow:${{ steps.vars.outputs.sha }}
           kubectl rollout status deployment/wisecow-server --timeout=90s
 
@@ -95,3 +96,5 @@ jobs:
              echo "No running pod, skipping test"
              exit 1
           fi
+
+          kubectl port-forward --namespace ingress-nginx service/ingress-nginx-controller 30443:443 --address 0.0.0.0 &
