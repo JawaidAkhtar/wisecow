@@ -11,6 +11,9 @@ env:
 jobs:
   build:
     runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
     outputs:
       commit_sha: ${{ steps.vars.outputs.sha }}
     steps:
@@ -43,6 +46,9 @@ jobs:
   deploy:
     needs: build
     runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
